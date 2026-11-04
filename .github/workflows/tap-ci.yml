@@ -58,40 +58,65 @@ jobs:
         run: |
           set -euo pipefail
           # HEAD is refs/pull/N/merge. Its first parent is main's current tip, so this diff is exactly
-          # what the PR adds onto main. Deleted files cannot be audited and are excluded.
+          # what the PR adds onto main.
           if ! git rev-parse --verify --quiet HEAD^2 >/dev/null; then
             echo "::error::HEAD is not a pull-request merge commit; cannot compute the changed files."
             exit 1
           fi
           # Capture the diff first: a git failure inside a process substitution would be lost and
-          # read as "nothing changed".
+          # read as "nothing changed". --no-renames splits a rename into a delete and an add.
           changed="$RUNNER_TEMP/changed-paths"
-          git diff -z --name-only --no-renames --diff-filter=d HEAD^1 HEAD > "$changed"
+          git diff -z --name-status --no-renames HEAD^1 HEAD > "$changed"
+          # One allowlist, matched exactly and so case-sensitively: every case variant
+          # (casks/x.rb, Casks/X.rb, README.MD) falls through to the refusal, and so does any path
+          # not listed (a root .rb, audit_exceptions/, cmd/, *_renames.json, tap_migrations.json).
+          forbidden=':no_check|preflight|postflight|installer[[:space:]]+script:|version[[:space:]]+:latest'
           casks=()
           formulas=()
           n_casks=0
           n_formulas=0
           bad=0
-          while IFS= read -r -d '' path; do
-            case "$path" in
-              Casks/* | Formula/*) ;;
-              *) continue ;;
+          gate=0
+          content=0
+          while IFS= read -r -d '' st && IFS= read -r -d '' path; do
+            case "$st" in
+              A | M | D) ;;
+              *) printf '::error::Unsupported change type %q: %q\n' "$st" "$path"; bad=1; continue ;;
             esac
-            # Flat layout only: a file outside these exact shapes would escape the audit, so it fails.
             if [[ "$path" =~ ^Casks/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
+              content=1
+              [ "$st" = D ] && continue # a withdrawal: nothing left to audit
+              if grep -Ein -e "$forbidden" -- "$path" > "$RUNNER_TEMP/hits"; then
+                printf '::error::Forbidden cask content in %q, lines: %s\n' "$path" "$(cut -d: -f1 "$RUNNER_TEMP/hits" | tr '\n' ' ')"
+                bad=1
+              elif [ $? -ne 1 ]; then
+                printf '::error::grep failed on %q\n' "$path"
+                bad=1
+              fi
               casks+=("intenteon/tap/${BASH_REMATCH[1]}")
               n_casks=$((n_casks + 1))
             elif [[ "$path" =~ ^Formula/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
+              content=1
+              [ "$st" = D ] && continue
               formulas+=("intenteon/tap/${BASH_REMATCH[1]}")
               n_formulas=$((n_formulas + 1))
             elif [[ "$path" == Casks/.keep || "$path" == Formula/.keep ]]; then
-              continue
+              # Without Formula/ (or Casks/) brew reads the tap root as that directory, outside this audit.
+              [ "$st" = A ] || { printf '::error::%q may only be added\n' "$path"; bad=1; }
+            elif [[ "$path" == README.md || "$path" =~ ^\.github/workflows/[^/]+\.yml$ ]]; then
+              case "$path" in .github/*) gate=1 ;; esac
             else
               # %q keeps a hostile file name from forming a workflow command.
-              printf '::error::Unexpected path under Casks/ or Formula/ (flat <token>.rb only): %q\n' "$path"
+              printf '::error::Path not on the tap allowlist: %q\n' "$path"
               bad=1
             fi
           done < "$changed"
+          # Under pull_request the PR's own copy of this workflow runs, so a PR may change the gate or
+          # the content it gates, never both.
+          if [ "$gate" -eq 1 ] && [ "$content" -eq 1 ]; then
+            echo "::error::This PR changes .github/ and a cask or formula; open them as separate PRs."
+            bad=1
+          fi
           [ "$bad" -eq 0 ] || exit 1
 
           if [ "$n_casks" -eq 0 ] && [ "$n_formulas" -eq 0 ]; then

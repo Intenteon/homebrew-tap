@@ -18,9 +18,23 @@ You can also skip `brew tap` and use the fully qualified name, for example
 | `Casks/<token>.rb` | notarized Developer ID `.app` zips |
 | `Formula/<name>.rb` | CLIs |
 
-The layout is flat, with no letter shards. Every change arrives as a pull request opened by an app's
-release workflow, and the `tap-ci` check (`brew style` plus `brew audit --strict --online`) must
-pass before it merges.
+The layout is flat, with no letter shards. Every change arrives as a pull request: an app's release
+workflow opens one per release, and the owner opens withdrawals and onboarding. The `tap-ci` check
+(`brew style` plus `brew audit --strict --online`) must pass before any of them merges. It also
+fails closed on any path, change type or cask content its audit step does not allow; the allowlist
+and the forbidden cask content are in `.github/workflows/tap-ci.yml`.
+
+## Merging
+
+`tap-ci` runs the workflow from the PR's own branch, so a green check is only evidence when nothing
+in the PR could have changed the check.
+
+- A green `tap-ci` counts on its own ONLY for a PR opened by an app's release workflow (the GitHub
+  App) from a `release/<token>-<version>` branch, whose diff is exactly one `Casks/<token>.rb` or
+  `Formula/<name>.rb`.
+- Every other PR (opened by a person, from a fork, a withdrawal, onboarding, or anything touching
+  `.github/`) needs the app owner to review the diff by hand before merging. When the PR changes
+  `.github/workflows/`, read the workflow diff itself: the green check came from that code.
 
 ## Standard
 

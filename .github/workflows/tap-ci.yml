@@ -1,0 +1,113 @@
+# Tap CI: `brew style` over the whole tap, and `brew audit --strict --online` over each cask or
+# formula a pull request adds or changes.
+# Standard: Intenteon/infrastructure docs/cicd/HOMEBREW-TAP-STANDARD.md (issue #1786).
+#
+# The job id `tap-ci` is the required status-check context in the tap's ruleset. Renaming the job,
+# or adding a `name:` to it, changes that context and leaves the required check unsatisfiable.
+#
+# Runner: GitHub-hosted macos-latest. `brew audit --cask` needs macOS, and hosted macOS minutes are
+# free for a public repository. A pull request's cask file is Ruby that `brew audit` evaluates, so
+# the job holds a read-only token, no secrets, and no persisted credentials.
+name: tap-ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tap-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  tap-ci:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      HOMEBREW_NO_ANALYTICS: "1"
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ENV_HINTS: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The pull_request ref is the merge commit; depth 2 brings both of its parents.
+          fetch-depth: 2
+
+      - name: Update Homebrew and link this checkout as intenteon/tap
+        run: |
+          set -euo pipefail
+          brew update --quiet
+          taps="$(brew --repository)/Library/Taps/intenteon"
+          mkdir -p "$taps"
+          rm -rf "$taps/homebrew-tap"
+          ln -s "$GITHUB_WORKSPACE" "$taps/homebrew-tap"
+          brew tap-info intenteon/tap
+
+      - name: brew style (whole tap, runs even when the tap is empty)
+        run: brew style intenteon/tap
+
+      - name: brew audit (changed casks and formulas)
+        run: |
+          set -euo pipefail
+          # HEAD is refs/pull/N/merge. Its first parent is main's current tip, so this diff is exactly
+          # what the PR adds onto main. Deleted files cannot be audited and are excluded.
+          if ! git rev-parse --verify --quiet HEAD^2 >/dev/null; then
+            echo "::error::HEAD is not a pull-request merge commit; cannot compute the changed files."
+            exit 1
+          fi
+          # Capture the diff first: a git failure inside a process substitution would be lost and
+          # read as "nothing changed".
+          changed="$RUNNER_TEMP/changed-paths"
+          git diff -z --name-only --no-renames --diff-filter=d HEAD^1 HEAD > "$changed"
+          casks=()
+          formulas=()
+          n_casks=0
+          n_formulas=0
+          bad=0
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              Casks/* | Formula/*) ;;
+              *) continue ;;
+            esac
+            # Flat layout only: a file outside these exact shapes would escape the audit, so it fails.
+            if [[ "$path" =~ ^Casks/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
+              casks+=("intenteon/tap/${BASH_REMATCH[1]}")
+              n_casks=$((n_casks + 1))
+            elif [[ "$path" =~ ^Formula/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
+              formulas+=("intenteon/tap/${BASH_REMATCH[1]}")
+              n_formulas=$((n_formulas + 1))
+            elif [[ "$path" == Casks/.keep || "$path" == Formula/.keep ]]; then
+              continue
+            else
+              # %q keeps a hostile file name from forming a workflow command.
+              printf '::error::Unexpected path under Casks/ or Formula/ (flat <token>.rb only): %q\n' "$path"
+              bad=1
+            fi
+          done < "$changed"
+          [ "$bad" -eq 0 ] || exit 1
+
+          if [ "$n_casks" -eq 0 ] && [ "$n_formulas" -eq 0 ]; then
+            echo "::notice::No changed casks or formulas; brew style ran, brew audit has nothing to check."
+            exit 0
+          fi
+
+          failed=0
+          for c in ${casks[@]+"${casks[@]}"}; do
+            echo "::group::brew audit --cask $c"
+            brew audit --cask --strict --online "$c" || { echo "::error::brew audit failed: $c"; failed=1; }
+            echo "::endgroup::"
+          done
+          for f in ${formulas[@]+"${formulas[@]}"}; do
+            echo "::group::brew audit --formula $f"
+            brew audit --formula --strict --online "$f" || { echo "::error::brew audit failed: $f"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit "$failed"

@@ -1,0 +1,130 @@
+{
+  "formulae": [],
+  "casks": [
+    {
+      "token": "probe",
+      "full_token": "probe/tap/probe",
+      "old_tokens": [],
+      "tap": "probe/tap",
+      "name": [
+        "Probe"
+      ],
+      "desc": "Probe",
+      "homepage": "https://example.com/",
+      "url": "https://example.com/probe-1.2.3.zip",
+      "url_specs": {},
+      "version": "1.2.3",
+      "autobump": true,
+      "no_autobump_message": null,
+      "skip_livecheck": false,
+      "installed": null,
+      "installed_time": null,
+      "bundle_version": null,
+      "bundle_short_version": null,
+      "outdated": false,
+      "sha256": "no_check",
+      "artifacts": [
+        {
+          "preflight": null
+        },
+        {
+          "uninstall_preflight": null
+        },
+        {
+          "uninstall": [
+            {
+              "quit": "com.x",
+              "early_script": {
+                "executable": "e.sh"
+              },
+              "script": {
+                "executable": "s.sh"
+              }
+            }
+          ]
+        },
+        {
+          "installer": [
+            {
+              "script": {
+                "executable": "x.sh"
+              }
+            }
+          ]
+        },
+        {
+          "pkg": [
+            "Probe.pkg"
+          ]
+        },
+        {
+          "app": [
+            "Probe.app"
+          ]
+        },
+        {
+          "postflight": null
+        },
+        {
+          "uninstall_postflight": null
+        },
+        {
+          "zap": [
+            {
+              "trash": "~/Library/x",
+              "rmdir": "~/y"
+            }
+          ]
+        }
+      ],
+      "caveats": null,
+      "depends_on": {
+        "macos": {
+          ">=": [
+            "10.15"
+          ]
+        }
+      },
+      "conflicts_with": null,
+      "container": null,
+      "rename": [],
+      "auto_updates": null,
+      "deprecated": false,
+      "deprecation_date": null,
+      "deprecation_reason": null,
+      "deprecation_replacement_formula": null,
+      "deprecation_replacement_cask": null,
+      "disabled": false,
+      "disable_date": null,
+      "disable_reason": null,
+      "disable_replacement_formula": null,
+      "disable_replacement_cask": null,
+      "tap_git_head": "d5fec969644b82f506878664c50eeae0fad17dd2",
+      "languages": [],
+      "ruby_source_path": "Casks/probe.rb",
+      "ruby_source_checksum": {
+        "sha256": "6a6df20f82b40118f6267db5d84ded449a0ece87d3274716abdd9add75a34f06"
+      },
+      "variations": {
+        "arm64_tahoe": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "arm64_sequoia": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "arm64_sonoma": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "arm64_ventura": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "arm64_monterey": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "arm64_big_sur": {
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    }
+  ]
+}

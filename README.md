@@ -21,8 +21,14 @@ You can also skip `brew tap` and use the fully qualified name, for example
 The layout is flat, with no letter shards. Every change arrives as a pull request: an app's release
 workflow opens one per release, and the owner opens withdrawals and onboarding. The `tap-ci` check
 (`brew style` plus `brew audit --strict --online`) must pass before any of them merges. It also
-fails closed on any path, change type or cask content its audit step does not allow; the allowlist
-and the forbidden cask content are in `.github/workflows/tap-ci.yml`.
+fails closed on any path, change type or mode the allowlist does not allow, and on any cask whose
+`brew info --cask --json=v2 --variations` shows an unpinned `sha256`, `version :latest`, or an
+artifact other than `app` (plus `zap`/`uninstall` with only `quit`, `delete`, `trash`). The rules
+are in `scripts/tap-check.sh`; `tests/run-fixtures.sh` pins them, and `tap-ci` fails unless that
+fixture test passes.
+
+Formulas get no structural check: `brew audit` and the owner's review of the diff are the only
+gates on a formula.
 
 ## Merging
 
@@ -33,8 +39,11 @@ in the PR could have changed the check.
   App) from a `release/<token>-<version>` branch, whose diff is exactly one `Casks/<token>.rb` or
   `Formula/<name>.rb`.
 - Every other PR (opened by a person, from a fork, a withdrawal, onboarding, or anything touching
-  `.github/`) needs the app owner to review the diff by hand before merging. When the PR changes
-  `.github/workflows/`, read the workflow diff itself: the green check came from that code.
+  `.github/`, `scripts/` or `tests/`) needs the app owner to review the diff by hand before
+  merging. When the PR changes `.github/workflows/`, `scripts/` or `tests/`, read that diff
+  itself: the green check came from that code.
+- Known residual (tracked follow-up): because `pull_request` runs the PR's own copy of the workflow
+  and of `scripts/tap-check.sh`, `tap-ci` cannot grade a PR that changes the check itself.
 
 ## Standard
 

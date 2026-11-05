@@ -1,5 +1,6 @@
-# Tap CI: `brew style` over the whole tap, and `brew audit --strict --online` over each cask or
-# formula a pull request adds or changes.
+# Tap CI: `brew style` over the whole tap; the changed-path allowlist and structural cask check in
+# scripts/tap-check.sh (fixture-tested by the tap-fixtures job); and `brew audit --strict --online`
+# over each cask or formula a pull request adds or changes.
 # Standard: Intenteon/infrastructure docs/cicd/HOMEBREW-TAP-STANDARD.md (issue #1786).
 #
 # The job id `tap-ci` is the required status-check context in the tap's ruleset. Renaming the job,
@@ -22,7 +23,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The committed fixture test for scripts/tap-check.sh. It needs no brew, so it runs on Linux.
+  tap-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: shellcheck
+        run: shellcheck scripts/tap-check.sh tests/run-fixtures.sh
+
+      - name: Fixture test (includes a positive control that must fail)
+        run: bash tests/run-fixtures.sh
+
   tap-ci:
+    # Only `tap-ci` is a required context, and a job skipped by a failed `needs` reads as passing.
+    # So tap-ci always runs and fails itself unless tap-fixtures succeeded.
+    needs: tap-fixtures
+    if: ${{ !cancelled() }}
     runs-on: macos-latest
     timeout-minutes: 30
     defaults:
@@ -33,7 +57,15 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_ENV_HINTS: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      FIXTURES_RESULT: ${{ needs.tap-fixtures.result }}
     steps:
+      - name: Require the fixture test
+        run: |
+          if [ "$FIXTURES_RESULT" != success ]; then
+            echo "::error::tap-fixtures did not succeed (result: $FIXTURES_RESULT)."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +86,7 @@ jobs:
       - name: brew style (whole tap, runs even when the tap is empty)
         run: brew style intenteon/tap
 
-      - name: brew audit (changed casks and formulas)
+      - name: Changed paths, structural cask check, brew audit
         run: |
           set -euo pipefail
           # HEAD is refs/pull/N/merge. Its first parent is main's current tip, so this diff is exactly
@@ -63,76 +95,43 @@ jobs:
             echo "::error::HEAD is not a pull-request merge commit; cannot compute the changed files."
             exit 1
           fi
-          # Capture the diff first: a git failure inside a process substitution would be lost and
-          # read as "nothing changed". --no-renames splits a rename into a delete and an add.
-          changed="$RUNNER_TEMP/changed-paths"
-          git diff -z --name-status --no-renames HEAD^1 HEAD > "$changed"
-          # One allowlist, matched exactly and so case-sensitively: every case variant
-          # (casks/x.rb, Casks/X.rb, README.MD) falls through to the refusal, and so does any path
-          # not listed (a root .rb, audit_exceptions/, cmd/, *_renames.json, tap_migrations.json).
-          forbidden=':no_check|preflight|postflight|installer[[:space:]]+script:|version[[:space:]]+:latest'
-          casks=()
-          formulas=()
-          n_casks=0
-          n_formulas=0
-          bad=0
-          gate=0
-          content=0
-          while IFS= read -r -d '' st && IFS= read -r -d '' path; do
-            case "$st" in
-              A | M | D) ;;
-              *) printf '::error::Unsupported change type %q: %q\n' "$st" "$path"; bad=1; continue ;;
-            esac
-            if [[ "$path" =~ ^Casks/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
-              content=1
-              [ "$st" = D ] && continue # a withdrawal: nothing left to audit
-              if grep -Ein -e "$forbidden" -- "$path" > "$RUNNER_TEMP/hits"; then
-                printf '::error::Forbidden cask content in %q, lines: %s\n' "$path" "$(cut -d: -f1 "$RUNNER_TEMP/hits" | tr '\n' ' ')"
-                bad=1
-              elif [ $? -ne 1 ]; then
-                printf '::error::grep failed on %q\n' "$path"
-                bad=1
-              fi
-              casks+=("intenteon/tap/${BASH_REMATCH[1]}")
-              n_casks=$((n_casks + 1))
-            elif [[ "$path" =~ ^Formula/([a-z0-9][a-z0-9@._+-]*)\.rb$ ]]; then
-              content=1
-              [ "$st" = D ] && continue
-              formulas+=("intenteon/tap/${BASH_REMATCH[1]}")
-              n_formulas=$((n_formulas + 1))
-            elif [[ "$path" == Casks/.keep || "$path" == Formula/.keep ]]; then
-              # Without Formula/ (or Casks/) brew reads the tap root as that directory, outside this audit.
-              [ "$st" = A ] || { printf '::error::%q may only be added\n' "$path"; bad=1; }
-            elif [[ "$path" == README.md || "$path" =~ ^\.github/workflows/[^/]+\.yml$ ]]; then
-              case "$path" in .github/*) gate=1 ;; esac
-            else
-              # %q keeps a hostile file name from forming a workflow command.
-              printf '::error::Path not on the tap allowlist: %q\n' "$path"
-              bad=1
-            fi
-          done < "$changed"
-          # Under pull_request the PR's own copy of this workflow runs, so a PR may change the gate or
-          # the content it gates, never both.
-          if [ "$gate" -eq 1 ] && [ "$content" -eq 1 ]; then
-            echo "::error::This PR changes .github/ and a cask or formula; open them as separate PRs."
-            bad=1
-          fi
-          [ "$bad" -eq 0 ] || exit 1
-
-          if [ "$n_casks" -eq 0 ] && [ "$n_formulas" -eq 0 ]; then
+          # Capture the diff first: a git failure inside a pipe would be lost and read as "nothing
+          # changed". --raw carries the modes (symlinks); --no-renames splits a rename into D + A.
+          changed="$RUNNER_TEMP/changed-raw"
+          git diff --raw -z --no-renames --no-abbrev HEAD^1 HEAD > "$changed"
+          targets="$RUNNER_TEMP/targets"
+          bash scripts/tap-check.sh classify-paths < "$changed" > "$targets"
+          if [ ! -s "$targets" ]; then
             echo "::notice::No changed casks or formulas; brew style ran, brew audit has nothing to check."
             exit 0
           fi
 
           failed=0
-          for c in ${casks[@]+"${casks[@]}"}; do
-            echo "::group::brew audit --cask $c"
-            brew audit --cask --strict --online "$c" || { echo "::error::brew audit failed: $c"; failed=1; }
-            echo "::endgroup::"
-          done
-          for f in ${formulas[@]+"${formulas[@]}"}; do
-            echo "::group::brew audit --formula $f"
-            brew audit --formula --strict --online "$f" || { echo "::error::brew audit failed: $f"; failed=1; }
-            echo "::endgroup::"
-          done
+          # fd 3, not stdin: brew reading stdin would swallow the remaining targets unaudited.
+          while read -r kind name <&3; do
+            if [ "$kind" = cask ]; then
+              echo "::group::cask $name"
+              json="$RUNNER_TEMP/cask-$name.json"
+              # --variations: without it the JSON shows only this runner's platform, hiding an
+              # on_intel/on_<macos> block's sha256, version or artifacts.
+              if bash scripts/tap-check.sh check-pragmas "Casks/$name.rb" &&
+                brew info --cask --json=v2 --variations "intenteon/tap/$name" > "$json" &&
+                bash scripts/tap-check.sh check-cask-json "$json"; then
+                brew audit --cask --strict --online "intenteon/tap/$name" || { echo "::error::brew audit failed: $name"; failed=1; }
+              else
+                echo "::error::structural cask check failed: $name"
+                failed=1
+              fi
+              echo "::endgroup::"
+            else
+              # Formulas get brew audit and the owner's review; no structural check (see README).
+              echo "::group::formula $name"
+              if bash scripts/tap-check.sh check-pragmas "Formula/$name.rb"; then
+                brew audit --formula --strict --online "intenteon/tap/$name" || { echo "::error::brew audit failed: $name"; failed=1; }
+              else
+                failed=1
+              fi
+              echo "::endgroup::"
+            fi
+          done 3< "$targets"
           exit "$failed"

@@ -1,0 +1,3 @@
+cask "snipdash" do # rubocop:disable all
+  version "1.2.3"
+end

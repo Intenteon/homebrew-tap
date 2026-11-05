@@ -1,0 +1,49 @@
+{
+  "formulae": [],
+  "casks": [
+    {
+      "token": "snipdash",
+      "full_token": "intenteon/tap/snipdash",
+      "tap": "intenteon/tap",
+      "name": [
+        "SnipDash"
+      ],
+      "desc": "Snippet dashboard",
+      "homepage": "https://intenteon.com/snipdash",
+      "url": "https://github.com/Intenteon/snipdash/releases/download/v1.2.3/SnipDash-1.2.3.zip",
+      "version": "1.2.3",
+      "sha256": "no_check",
+      "artifacts": [
+        {
+          "uninstall": [
+            {
+              "quit": "com.intenteon.snipdash"
+            }
+          ]
+        },
+        {
+          "app": [
+            "SnipDash.app"
+          ]
+        },
+        {
+          "zap": [
+            {
+              "trash": [
+                "~/Library/Preferences/com.intenteon.snipdash.plist"
+              ]
+            }
+          ]
+        }
+      ],
+      "depends_on": {
+        "macos": {
+          ">=": [
+            "14"
+          ]
+        }
+      },
+      "variations": {}
+    }
+  ]
+}

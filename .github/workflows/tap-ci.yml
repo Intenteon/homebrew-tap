@@ -82,6 +82,8 @@ jobs:
           rm -rf "$taps/homebrew-tap"
           ln -s "$GITHUB_WORKSPACE" "$taps/homebrew-tap"
           brew tap-info intenteon/tap
+          # Homebrew 7 refuses to load a cask from an untrusted tap. This job holds no secrets (above).
+          brew trust intenteon/tap
 
       - name: brew style (whole tap, runs even when the tap is empty)
         run: brew style intenteon/tap

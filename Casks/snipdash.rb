@@ -7,6 +7,10 @@ cask "snipdash" do
   desc "Menu bar text snippets with global keyboard shortcuts"
   homepage "https://intenteon.com/solutions/snipdash/"
 
+  livecheck do
+    skip "Updates through its signed Sparkle feed"
+  end
+
   auto_updates true
   depends_on macos: :ventura
 

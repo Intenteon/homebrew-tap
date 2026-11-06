@@ -1,0 +1,79 @@
+{
+  "formulae": [],
+  "casks": [
+    {
+      "token": "snipdash",
+      "full_token": "intenteon/tap/snipdash",
+      "old_tokens": [],
+      "tap": "intenteon/tap",
+      "name": [
+        "SnipDash"
+      ],
+      "desc": "Snippet dashboard",
+      "homepage": "https://github.com/Intenteon/snipdash",
+      "url": "https://github.com/Intenteon/snipdash/releases/download/v1.2.3/SnipDash-1.2.3.zip",
+      "url_specs": {},
+      "version": "1.2.3",
+      "autobump": true,
+      "no_autobump_message": null,
+      "skip_livecheck": false,
+      "installed": null,
+      "installed_time": null,
+      "bundle_version": null,
+      "bundle_short_version": null,
+      "outdated": false,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifacts": [
+        {
+          "uninstall": [
+            {
+              "quit": "com.intenteon.snipdash"
+            }
+          ]
+        },
+        {
+          "app": [
+            "SnipDash.app"
+          ],
+          "target": "/Applications/SnipDash.app"
+        },
+        {
+          "zap": [
+            {
+              "trash": "~/Library/Preferences/com.intenteon.snipdash.plist"
+            }
+          ]
+        }
+      ],
+      "caveats": null,
+      "depends_on": {
+        "macos": {
+          ">=": [
+            "14"
+          ]
+        }
+      },
+      "conflicts_with": null,
+      "container": null,
+      "rename": [],
+      "auto_updates": null,
+      "deprecated": false,
+      "deprecation_date": null,
+      "deprecation_reason": null,
+      "deprecation_replacement_formula": null,
+      "deprecation_replacement_cask": null,
+      "disabled": false,
+      "disable_date": null,
+      "disable_reason": null,
+      "disable_replacement_formula": null,
+      "disable_replacement_cask": null,
+      "tap_git_head": "1429cae8172a5d19a7c0291439075c61fa383cc9",
+      "languages": [],
+      "ruby_source_path": "Casks/snipdash.rb",
+      "ruby_source_checksum": {
+        "sha256": "cdc68eb6422e146fa4ddad98c2fbe6b010cbf4358e962aa36c75e654a8cd2676"
+      },
+      "variations": {}
+    }
+  ]
+}

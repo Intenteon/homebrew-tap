@@ -82,6 +82,9 @@ jobs:
           rm -rf "$taps/homebrew-tap"
           ln -s "$GITHUB_WORKSPACE" "$taps/homebrew-tap"
           brew tap-info intenteon/tap
+          # Homebrew refuses to load a cask from an untrusted tap. Trust lets the cask's Ruby run, so a
+          # green check is not proof against a hostile cask; the owner's review is. No secrets here.
+          brew trust intenteon/tap
 
       - name: brew style (whole tap, runs even when the tap is empty)
         run: brew style intenteon/tap

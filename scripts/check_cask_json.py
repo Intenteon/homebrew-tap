@@ -34,10 +34,21 @@ def check_fields(c, where):
             return
         apps = 0
         for a in arts:
-            if not isinstance(a, dict) or len(a) != 1:
+            if not isinstance(a, dict):
                 refuse("bad-json", where + ".artifacts")
                 continue
-            (key, val), = a.items()
+            # brew adds `target` beside `app`: the install path, always /Applications/<name>.app here.
+            target = a.get("target")
+            rest = [k for k in a if k != "target"]
+            if len(rest) != 1:
+                refuse("bad-json", where + ".artifacts")
+                continue
+            key, val = rest[0], a[rest[0]]
+            if "target" in a and (key != "app"
+                                  or not isinstance(target, str)
+                                  or not re.fullmatch(r"/Applications/[^/]+\.app", target)):
+                refuse("app-target", where)
+                continue
             if key not in ALLOWED_ARTIFACTS:
                 # preflight, postflight, uninstall_preflight, uninstall_postflight, pkg, installer,
                 # binary, ... -- every artifact that is not app/zap/uninstall.

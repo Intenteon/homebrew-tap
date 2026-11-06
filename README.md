@@ -35,12 +35,11 @@ gates on a formula.
 `tap-ci` runs the workflow from the PR's own branch, so a green check is only evidence when nothing
 in the PR could have changed the check.
 
-- A green `tap-ci` counts on its own ONLY for a PR opened by an app's release workflow (the GitHub
-  App) from a `release/<token>-<version>` branch, whose diff is exactly one `Casks/<token>.rb` or
-  `Formula/<name>.rb`.
-- Every other PR (opened by a person, from a fork, a withdrawal, onboarding, or anything touching
-  `.github/`, `scripts/` or `tests/`) needs the app owner to review the diff by hand before
-  merging. When the PR changes `.github/workflows/`, `scripts/` or `tests/`, read that diff
+- A green `tap-ci` never counts on its own. `brew info` evaluates a cask's Ruby in the same job,
+  before the structural check reads the result, so a cask can forge what the check sees.
+- Every PR (opened by a person or an app, from a fork, a withdrawal, onboarding, or anything
+  touching `.github/`, `scripts/` or `tests/`) needs the app owner to review the diff by hand
+  before merging. When the PR changes `.github/workflows/`, `scripts/` or `tests/`, read that diff
   itself: the green check came from that code.
 - Known residual (tracked follow-up): because `pull_request` runs the PR's own copy of the workflow
   and of `scripts/tap-check.sh`, `tap-ci` cannot grade a PR that changes the check itself.

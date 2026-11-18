@@ -1,6 +1,6 @@
 cask "snipdash" do
-  version "1.3"
-  sha256 "66a49724748d6a9c6d0d5095fd141b76b4f0015bcc1717a38a6d2adddeafb162"
+  version "1.4"
+  sha256 "2cf610e8932244c9ab5197384ce784fd8e5852201df1ac06741054aa8fdb094f"
 
   url "https://downloads.intenteon.com/snipdash/SnipDash-#{version}.zip"
   name "SnipDash"
@@ -20,8 +20,4 @@ cask "snipdash" do
     "~/Library/Containers/com.intenteon.snipdash",
     "~/Library/Preferences/com.intenteon.snipdash.plist",
   ]
-
-  caveats <<~EOS
-    zap also removes the App Store build's library, since both share the container.
-  EOS
 end

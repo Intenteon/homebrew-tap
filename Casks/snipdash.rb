@@ -1,6 +1,6 @@
 cask "snipdash" do
-  version "1.4"
-  sha256 "2cf610e8932244c9ab5197384ce784fd8e5852201df1ac06741054aa8fdb094f"
+  version "1.4.1"
+  sha256 "d6a86ac842baeb046ad06be21a45ed350597208efe3500756516f35e474c18b4"
 
   url "https://downloads.intenteon.com/snipdash/SnipDash-#{version}.zip"
   name "SnipDash"
